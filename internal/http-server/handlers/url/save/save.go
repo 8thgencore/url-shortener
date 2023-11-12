@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"net/http"
 	resp "url-shortener/internal/lib/api/response"
+	utils "url-shortener/internal/lib/helpers"
 	"url-shortener/internal/lib/logger/sl"
 	"url-shortener/internal/lib/random"
 	"url-shortener/internal/storage"
@@ -68,6 +69,14 @@ func New(log *slog.Logger, urlSaver URLSaver) http.HandlerFunc {
 		if alias == "" {
 			alias = random.NewRandomString(aliasLength)
 			// TODO: check if alias exists
+		}
+
+		if !utils.IsValidAlias(alias) {
+			log.Info("url alias not valid", slog.String("alias", req.URL))
+
+			render.JSON(w, r, resp.Error("url alias not valid"))
+
+			return
 		}
 
 		id, err := urlSaver.SaveURL(req.URL, alias)

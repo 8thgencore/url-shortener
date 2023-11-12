@@ -1,6 +1,7 @@
 package tests
 
 import (
+	"fmt"
 	"net/http"
 	"net/url"
 	"testing"
@@ -15,8 +16,8 @@ import (
 )
 
 const (
-	host = "localhost:8085"
-	user = "admin"
+	host     = "localhost:8085"
+	user     = "admin"
 	password = "password"
 )
 
@@ -40,7 +41,7 @@ func TestURLShortener_HappyPath(t *testing.T) {
 }
 
 //nolint:funlen
-func TestURLShortener_SaveRedirect(t *testing.T) {
+func TestURLShortener_SaveRedirectDelete(t *testing.T) {
 	testCases := []struct {
 		name  string
 		url   string
@@ -76,7 +77,6 @@ func TestURLShortener_SaveRedirect(t *testing.T) {
 			e := httpexpect.Default(t, u.String())
 
 			// Save
-
 			resp := e.POST("/url").
 				WithJSON(save.Request{
 					URL:   tc.url,
@@ -87,9 +87,7 @@ func TestURLShortener_SaveRedirect(t *testing.T) {
 				JSON().Object()
 
 			if tc.error != "" {
-				resp.NotContainsKey("alias")
-
-				resp.Value("error").String().IsEqual(tc.error)
+				resp.NotContainsKey("alias").Value("error").String().IsEqual(tc.error)
 
 				return
 			}
@@ -105,8 +103,15 @@ func TestURLShortener_SaveRedirect(t *testing.T) {
 			}
 
 			// Redirect
-
 			testRedirect(t, alias, tc.url)
+
+			// Delete
+			resp = e.DELETE(fmt.Sprintf("/url/%s", alias)).
+				WithBasicAuth(user, password).
+				Expect().Status(http.StatusOK).
+				JSON().Object()
+
+			require.Equal(t, resp.Value("status").Raw(), "OK")
 		})
 	}
 }

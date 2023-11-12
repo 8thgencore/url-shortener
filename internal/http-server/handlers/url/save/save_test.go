@@ -90,6 +90,9 @@ func TestSaveHandler(t *testing.T) {
 
 			require.Equal(t, tc.respError, resp.Error)
 
+			if tc.respError == "" {
+				urlSaverMock.AssertExpectations(t)
+			}
 			// TODO: add more checks
 		})
 	}
