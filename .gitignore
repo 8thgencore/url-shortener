@@ -23,4 +23,9 @@ go.work
 # air
 tmp/
 
+#
 .vscode
+
+.env
+*.db
+!.gitkeep

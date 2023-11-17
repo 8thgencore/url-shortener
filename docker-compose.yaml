@@ -1,0 +1,14 @@
+version: '3'
+
+services:
+  url-shortener:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8085:8080"
+    volumes:
+      - ./storage:/app/storage
+    restart: unless-stopped
+    env_file:
+      - .env
