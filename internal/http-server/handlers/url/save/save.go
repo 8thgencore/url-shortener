@@ -2,6 +2,7 @@ package save
 
 import (
 	"errors"
+	"io"
 	"log/slog"
 	"net/http"
 	resp "url-shortener/internal/lib/api/response"
@@ -31,6 +32,9 @@ const aliasLength = 4
 //go:generate go run github.com/vektra/mockery/v2 --name=URLSaver --case=snake
 type URLSaver interface {
 	SaveURL(urlToSave string, alias string) (int64, error)
+	AliasExists(alias string) (bool, error)
+	URLExists(urlToCheck string) (bool, error)
+	GetAliasByURL(urlToFind string) (string, error)
 }
 
 func New(log *slog.Logger, urlSaver URLSaver) http.HandlerFunc {
@@ -45,6 +49,15 @@ func New(log *slog.Logger, urlSaver URLSaver) http.HandlerFunc {
 		var req Request
 
 		err := render.DecodeJSON(r.Body, &req)
+		if errors.Is(err, io.EOF) {
+			// Такую ошибку встретим, если получили запрос с пустым телом.
+			// Обработаем её отдельно
+			log.Error("request body is empty")
+
+			render.JSON(w, r, resp.Error("empty request"))
+
+			return
+		}
 		if err != nil {
 			log.Error("failed to decode request", sl.Err(err))
 
@@ -67,8 +80,47 @@ func New(log *slog.Logger, urlSaver URLSaver) http.HandlerFunc {
 
 		alias := req.Alias
 		if alias == "" {
-			alias = random.NewRandomString(aliasLength)
-			// TODO: check if alias exists
+			// Generate a random alias until a unique one is found
+			exists, err := urlSaver.URLExists(req.URL)
+			if err != nil {
+				log.Error("failed to check that URL exists in DB", sl.Err(err))
+				render.JSON(w, r, resp.Error("failed to check that URL exists in DB"))
+				return
+			}
+
+			if exists {
+				alias, err = urlSaver.GetAliasByURL(req.URL)
+				if err != nil {
+					log.Error("failed to get alias connected to URL", sl.Err(err))
+					render.JSON(w, r, resp.Error("failed to get alias connected to URL"))
+					return
+				}
+
+				responseOK(w, r, alias)
+				return
+			}
+
+			const maxAttempts = 64 // Maximum number of generation attempts
+			exists = true
+
+			for attempt := 1; attempt <= maxAttempts; attempt++ {
+				alias = random.NewRandomString(aliasLength)
+				exists, err = urlSaver.AliasExists(alias)
+				if err != nil {
+					log.Error("failed to generate alias", sl.Err(err))
+					render.JSON(w, r, resp.Error("failed to generate url"))
+					return
+				}
+				if !exists {
+					break
+				}
+			}
+
+			if exists {
+				log.Error("The number of attempts to create an alias has been exceeded", sl.Err(err))
+				render.JSON(w, r, resp.Error("The number of attempts to create an alias has been exceeded. Try again after a while"))
+				return
+			}
 		}
 
 		if !utils.IsValidAlias(alias) {
