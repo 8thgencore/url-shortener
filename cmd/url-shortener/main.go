@@ -7,6 +7,7 @@ import (
 	"os/signal"
 	"syscall"
 	"url-shortener/internal/config"
+	"url-shortener/internal/http-server/handlers/greeting"
 	"url-shortener/internal/http-server/handlers/redirect"
 	hDelete "url-shortener/internal/http-server/handlers/url/delete"
 	"url-shortener/internal/http-server/handlers/url/save"
@@ -58,6 +59,12 @@ func main() {
 	router.Use(middleware.Recoverer)
 	router.Use(middleware.URLFormat)
 
+	// Create a new FileServer to serve static files from the "./static" directory
+	fs := http.FileServer(http.Dir("./static"))
+
+	// Handle requests to URLs starting with "/static/" by stripping the prefix and serving files from the file server
+	router.Handle("/static/*", http.StripPrefix("/static/", fs))
+
 	// Define a route for "/url" with basic authentication
 	router.Route("/url", func(r chi.Router) {
 		r.Use(middleware.BasicAuth("url-shortener", map[string]string{
@@ -69,6 +76,7 @@ func main() {
 	})
 
 	// Define routes for saving, deleting, and redirecting
+	router.Get("/", greeting.New(log, "./static"))
 	router.Post("/", save.New(log, storage))
 	router.Delete("/{alias}", hDelete.New(log, storage))
 	router.Get("/{alias}", redirect.New(log, storage))
