@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"syscall"
 	"url-shortener/internal/config"
 	"url-shortener/internal/http-server/handlers/greeting"
@@ -43,11 +44,23 @@ func main() {
 	log.Debug("debug messages are enabled")
 
 	// Initialize storage (SQLite in this case)
+	dirPath := filepath.Dir(cfg.StoragePath)
+	if _, err := os.Stat(dirPath); os.IsNotExist(err) {
+		if err := os.MkdirAll(dirPath, os.ModePerm); err != nil {
+			log.Error("failed to make storage dirs", sl.Err(err))
+			os.Exit(1)
+		}
+	}
 	storage, err := sqlite.New(cfg.StoragePath)
 	if err != nil {
 		log.Error("Failed to init storage", sl.Err(err))
 		os.Exit(1)
 	}
+	defer func() {
+		if err := storage.Close(); err != nil {
+			log.Error("failed to close storage", sl.Err(err))
+		}
+	}()
 
 	// Create a new Chi router
 	router := chi.NewRouter()
@@ -100,7 +113,7 @@ func main() {
 	// Start the server in a goroutine
 	go func() {
 		if err := srv.ListenAndServe(); err != nil {
-			log.Error("failed to start server")
+			log.Error("failed to start Server", slog.String("error", err.Error()))
 		}
 	}()
 
@@ -119,11 +132,6 @@ func main() {
 	if err := srv.Shutdown(ctx); err != nil {
 		log.Error("failed to stop server", sl.Err(err))
 		return
-	}
-
-	// Close storage (add appropriate storage closure logic)
-	if err := storage.Close(); err != nil {
-		log.Error("failed to close storage", sl.Err(err))
 	}
 
 	// Log information about the server stop
