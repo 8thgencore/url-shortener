@@ -3,9 +3,19 @@ env: "local" # local, dev, prod
 storage_path: "./storage/storage.db"
 
 http_server:
-  address: "localhost:8080"
+  address: "0.0.0.0:8080"
   timeout: 4s
   idle_timeout: 60s
   shutdown_timeout: 10s
   user: "admin"
   password: "password"
+
+log:
+  slog:
+    add_source: true
+    level: "debug"
+    format: "pretty"
+    pretty:
+      fields_format: "json"
+      emoji: true
+      time_layout: "15:04:05"

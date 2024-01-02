@@ -9,3 +9,9 @@ http_server:
   idle_timeout: 60s
   shutdown_timeout: 10s
   user: "user"
+
+log:
+  slog:
+    level: "info"
+    add_source: true
+    format: "json"

@@ -23,21 +23,12 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 )
 
-const (
-	envLocal = "local"
-	envDev   = "dev"
-	envProd  = "prod"
-)
-
 func main() {
 	// Load configuration
 	cfg := config.MustLoad()
 
 	// Set up logger based on configuration
-	log, err := setupLogger(cfg.Env, cfg.LoggerPath)
-	if err != nil {
-		os.Exit(1)
-	}
+	log := newSlogLogger(cfg.Log.Slog)
 
 	// Log information about the start of the application
 	log.Info("starting url-shortener", slog.String("env", cfg.Env))
@@ -67,8 +58,10 @@ func main() {
 
 	// Middleware setup
 	router.Use(middleware.RequestID)
+	// TODO: Log requests with mismatched route using slog instead of chi logger
 	router.Use(middleware.Logger)
 	router.Use(mwLogger.New(log))
+	// TODO: use slog to log panic and github.com/maruel/panicparse to handle it
 	router.Use(middleware.Recoverer)
 	router.Use(middleware.URLFormat)
 
@@ -138,39 +131,22 @@ func main() {
 	log.Error("server stopped")
 }
 
-func setupLogger(env string, logFilePath string) (*slog.Logger, error) {
-	var log *slog.Logger
+func newSlogLogger(c config.Slog) *slog.Logger {
+	o := &slog.HandlerOptions{Level: c.Level, AddSource: c.AddSource}
+	w := os.Stdout
+	var h slog.Handler
 
-	switch env {
-	case envLocal:
-		log = setupPrettySlog()
-	case envDev:
-		log = slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
-	case envProd:
-		file, err := os.OpenFile(logFilePath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
-		if err != nil {
-			return nil, err
-		}
-		log = slog.New(
-			slog.NewJSONHandler(file, &slog.HandlerOptions{Level: slog.LevelInfo}),
-		)
-	default: // If env config is invalid, set prod settings by default due to security
-		log = slog.New(
-			slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}),
-		)
+	switch c.Format {
+	case "pretty":
+		h = slogpretty.NewHandler().
+			WithAddSource(c.AddSource).
+			WithLevel(c.Level).
+			WithLevelEmoji(c.Pretty.Emoji).
+			WithFieldsFormat(c.Pretty.FieldsFormat)
+	case "json":
+		h = slog.NewJSONHandler(w, o)
+	case "text":
+		h = slog.NewTextHandler(w, o)
 	}
-
-	return log, nil
-}
-
-func setupPrettySlog() *slog.Logger {
-	opts := slogpretty.PrettyHandlerOptions{
-		SlogOpts: &slog.HandlerOptions{
-			Level: slog.LevelDebug,
-		},
-	}
-
-	handler := opts.NewPrettyHandler(os.Stdout)
-
-	return slog.New(handler)
+	return slog.New(h)
 }
