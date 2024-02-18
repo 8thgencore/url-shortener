@@ -7,6 +7,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"syscall"
+	ssogrpc "url-shortener/internal/clients/sso/grpc"
 	"url-shortener/internal/config"
 	"url-shortener/internal/http-server/handlers/greeting"
 	"url-shortener/internal/http-server/handlers/redirect"
@@ -33,6 +34,23 @@ func main() {
 	// Log information about the start of the application
 	log.Info("starting url-shortener", slog.String("env", cfg.Env))
 	log.Debug("debug messages are enabled")
+
+	// Initial gRPC sso client
+	ssoClient, err := ssogrpc.New(
+		context.Background(),
+		log,
+		cfg.Clients.SSO.Address,
+		cfg.Clients.SSO.Timeout,
+		cfg.Clients.SSO.RetriesCount,
+	)
+	if err != nil {
+		log.Error("failed to init sso client", sl.Err(err))
+		os.Exit(1)
+	}
+
+	// Example used
+	isAdmin, _ := ssoClient.IsAdmin(context.Background(), 1)
+	log.Info("is_admin", slog.Bool("is_admin", isAdmin))
 
 	// Initialize storage (SQLite in this case)
 	dirPath := filepath.Dir(cfg.StoragePath)

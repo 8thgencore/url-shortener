@@ -19,3 +19,12 @@ log:
       fields_format: "json"
       emoji: true
       time_layout: "15:04:05"
+
+clients:
+  sso:
+    address: "localhost:44044"
+    timeout: 10s
+    retries_count: 3
+    insecure: false
+
+app_secret: "secret"

@@ -17,6 +17,8 @@ type (
 		LoggerPath  string `yaml:"logger_path"`
 		Log         Log    `yaml:"log"`
 		HttpServer  `yaml:"http_server" `
+		Clients     ClientConfig `yaml:"clients"`
+		AppSecret   string       `yaml:"app_secret" env-required:"true" env:"APP_SECRET"`
 	}
 
 	HttpServer struct {
@@ -26,6 +28,16 @@ type (
 		ShutdownTimeout time.Duration `yaml:"shutdown_timeout" env-default:"10s"`
 		User            string        `yaml:"user" env-required:"true"`
 		Password        string        `yaml:"password" env-required:"true" env:"HTTP_SERVER_PASSWORD"`
+	}
+
+	Client struct {
+		Address      string        `yaml:"address"`
+		Timeout      time.Duration `yaml:"timeout"`
+		RetriesCount int           `yaml:"retries_count"`
+		Insecure     bool          `yaml:"insecure"`
+	}
+	ClientConfig struct {
+		SSO Client `yaml:"sso"`
 	}
 
 	Log struct {
