@@ -1,8 +1,8 @@
 ## Structure
 
-`url-shortener` - main application
-`sso` - auth for application
-`protos` - generated proto files
+`url-shortener` - main application 
+`sso` - auth for application 
+`protos` - generated proto files 
 
 
 #### For development
